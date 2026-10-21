@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新聞メーカー 説明書</title>
+<style>
+body{margin:0;font-family:system-ui,"Hiragino Sans","Yu Gothic",sans-serif;line-height:1.8;color:#222;background:#f4f1e8}
+main{max-width:860px;margin:0 auto;padding:24px 20px 60px;background:#fff}
+h1{border-bottom:4px double #222;padding-bottom:8px}
+h2{margin-top:36px;border-left:6px solid #b5442a;padding-left:10px}
+pre{background:#1e1e1e;color:#e8e8e8;padding:12px;border-radius:6px;overflow-x:auto;line-height:1.5;font-size:13px}
+code{background:#eee;padding:1px 5px;border-radius:3px}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0}
+th,td{border:1px solid #bbb;padding:4px 8px;text-align:left}
+th{background:#eee}
+input{width:100%;padding:8px;font-size:15px;border:1px solid #999;border-radius:4px}
+.note{background:#fff6b3;padding:8px 12px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+<h1>📰 新聞メーカー 説明書</h1>
+<p>XMLとCSSを「文字で書く」だけで新聞をつくり、PDFにして保存できるツールです。</p>
+
+<h2>1. 基本の使い方</h2>
+<ol>
+<li><code>shinbun.html</code> をブラウザで開く(ネット接続が必要です。<b>Chrome / Edge などで直接開く</b>のがおすすめ)。</li>
+<li>左の<b>ファイル一覧</b>から <code>news.xml</code>(紙面)や <code>style.css</code>(見た目)を開いて、文字で書く。</li>
+<li><b>パソコン</b>では、右に紙面(A4)がリアルタイムで表示されます。<b>スマホ</b>では「プレビュー」ボタンで表示します(<code>Ctrl+Enter</code> でも可)。</li>
+<li><b>PNG保存</b> / <b>PDF保存</b> で、A4・1枚の印刷用データを保存。保存されないときは、出てくる画面の「保存」ボタン、または画像の長押しを使ってください。</li>
+</ol>
+<p>紙面は<b>A4縦に固定</b>されています(印刷用)。内容がA4からはみ出すと、画面下に赤い警告が出ます。はみ出した部分は印刷されません。</p>
+<p>XMLエディタで <code>&lt;</code> を打つと、使えるタグが候補に出ます。CSSエディタでは <code>.</code> や <code>#</code> を打つと、XMLに書いたclass・id・タグ名が候補に出ます。</p>
+<h3>ファイル一覧の使い方</h3>
+<ul>
+<li><b>新規</b>:上の入力欄にファイル名(例 <code>page2.xml</code>)を書いて ＋。</li>
+<li><b>編集</b>:ファイル名をクリックすると中身を編集できます。自動で保存されます(<code>Ctrl+S</code> でも可)。</li>
+<li><b>削除</b>:🗑 を押し、「本当に?」と出たらもう一度押す(3秒以内)。</li>
+<li><b>紙面になるXML</b>:最後に開いた <code>.xml</code> ファイルが紙面になります(「紙面」の印が付きます)。<code>.css</code> は全部まとめて適用されます。</li>
+<li><b>📁 フォルダ</b>:フォルダ内のxml・css・js・画像などをまとめて読み込みます。PCのChrome/Edgeでは、フォルダを開いたまま<b>直接編集・追加・削除</b>でき、自動でフォルダに保存されます(File System Access API)。スマホやアプリ内ビューアでは「読み込みのみ」になり、読み込んだ内容はブラウザ内に保存されます。</li>
+<li><b>📄 ファイル</b>:ファイルを複数選んで追加します(スマホ向け)。選んだ最初のXMLが紙面になります。画像が <code>images/</code> に入っていなくても、ファイル名が同じなら <code>src</code> で見つかります。</li>
+<li><b>💾 / 📂</b>:全ファイルを1つのJSONに保存/読み込み(バックアップ用)。スマホなどフォルダが使えない環境の保管場所になります。</li>
+</ul>
+<p class="note">フォルダを開いていないときは、ファイルはそのブラウザの中(IndexedDB)に保存されます。ブラウザのデータを消すと消えるので、大事なものは 💾 で保存してください。</p>
+
+<h2>2. XMLの書き方ルール</h2>
+<ul>
+<li>最初のタグ(ルート)は1つだけ。ふつうは <code>&lt;newspaper&gt;</code> で全体を囲みます。</li>
+<li>タグは必ず閉じます。<code>&lt;p&gt;文&lt;/p&gt;</code>。中身のないタグは <code>&lt;img src="..."/&gt;</code> のように <code>/&gt;</code> で閉じます。</li>
+<li>属性の値は <code>"..."</code> で囲みます。</li>
+<li>文字の <code>&amp;</code> は <code>&amp;amp;</code>、<code>&lt;</code> は <code>&amp;lt;</code> と書きます(エラーになったら確認)。</li>
+<li>エラーのときは、画面下の赤いバーに理由が出ます。</li>
+</ul>
+
+<h2>3. class / id / style / script</h2>
+<p><b>class</b>:どのタグにも、<b>タグ名と同じclass</b>が自動で付きます。<code>&lt;headline&gt;</code> は CSSで <code>.headline</code> と書けます。自分のclassも足せます。</p>
+<pre><code>&lt;article class="top hot" id="a1"&gt;…&lt;/article&gt;
+
+/* CSS */
+.article{ ... }   /* タグ名のclass */
+.top{ ... }       /* 自分のclass */
+#a1{ ... }        /* id */
+.top .headline{ ... }</code></pre>
+
+<p><b>style</b>:XMLの中に <code>&lt;style&gt;</code> を書くと、その場でCSSを足せます。<code>CDATA</code> で囲むと <code>&gt;</code> や <code>&amp;</code> をそのまま書けます。</p>
+<pre><code>&lt;style&gt;&lt;![CDATA[
+  #a1 .headline{ color:#b00; }
+]]&gt;&lt;/style&gt;</code></pre>
+
+<p><b>script</b>:<code>&lt;script&gt;</code> の中身はJavaScriptとして紙面で実行されます。<code>document</code> を使って<b>紙面ぜんぶ</b>を読み書きできるので、全てを制御できるのはscriptタグです。</p>
+<pre><code>&lt;script&gt;&lt;![CDATA[
+  document.querySelector('.top .headline').textContent = '新しい見出し';
+  document.querySelectorAll('.p').forEach(p => p.style.fontSize = '18px');
+]]&gt;&lt;/script&gt;</code></pre>
+<p class="note">scriptのエラーは、プレビューを閉じたあと画面下の赤いバーに表示されます。</p>
+
+<h2>4. 日付・時刻タグ</h2>
+<p><code>&lt;date&gt;</code> と <code>&lt;time&gt;</code> は、<b>タグの中身が書式</b>になります。毎秒自動で更新され、編集はこのタグの中だけで完結します。</p>
+<table>
+<tr><th>書式</th><th>意味</th><th>書式</th><th>意味</th></tr>
+<tr><td>YYYY</td><td>年(2026)</td><td>HH</td><td>時(2桁 09)</td></tr>
+<tr><td>M</td><td>月(1〜12)</td><td>H</td><td>時(9)</td></tr>
+<tr><td>D</td><td>日(1〜31)</td><td>mm</td><td>分(2桁)</td></tr>
+<tr><td>ddd</td><td>曜日(月)</td><td>ss</td><td>秒(2桁)</td></tr>
+</table>
+<pre><code>&lt;date&gt;YYYY年M月D日(ddd)&lt;/date&gt;  →  2026年10月21日(水)
+&lt;time&gt;HH:mm:ss&lt;/time&gt;           →  14:05:09</code></pre>
+<p>固定の日付にしたいときは、書式の文字を使わずに <code>&lt;date&gt;昭和の日&lt;/date&gt;</code> のように書きます。</p>
+
+<h2>5. 画像(imgタグ)</h2>
+<ol>
+<li>左の <b>🖼 画像追加</b> で画像を選ぶ(複数OK)。<code>images/</code> フォルダに入ります(大きい画像は自動で縮小)。</li>
+<li>一覧の<b>画像をタップ</b>すると、XMLのカーソル位置に <code>&lt;img src="images/○○.png" alt=""/&gt;</code> が入ります。</li>
+<li>画像は一覧から削除(🗑)もできます。</li>
+</ol>
+<pre><code>&lt;img src="images/photo.png" alt="写真" width="300"/&gt;
+&lt;figure&gt;
+  &lt;img src="images/photo.png" alt=""/&gt;
+  &lt;caption&gt;写真説明&lt;/caption&gt;
+&lt;/figure&gt;</code></pre>
+<p>CSSの背景画像も同じ名前で指定できます:<code>background:url(images/photo.png)</code></p>
+<p>外部URL(<code>https://...</code>)の画像も使えますが、相手のサーバーが許可していないとPNG/PDFに写らないことがあります。確実なのは「画像追加」です。</p>
+
+<h2>6. タグ一覧</h2>
+<input id="q" placeholder="タグ名・説明で絞り込み(例:見出し)">
+<table id="tb"><thead><tr><th>XMLタグ</th><th>説明</th><th>CSSで書くとき</th><th>HTMLになる姿</th></tr></thead><tbody></tbody></table>
+<p>ここにないタグ名を書いても、<code>div</code> として扱われ、同名のclassが付きます(自作タグOK)。<code>&lt;style&gt;</code> と <code>&lt;script&gt;</code> は特別なタグです。</p>
+
+<h2>7. PNG / PDF について</h2>
+<ul>
+<li>どちらも<b>A4縦1枚</b>(PNGは2382×3369px、PDFはA4サイズ)で、印刷向けです。</li>
+<li>紙面を画像にして保存するため、PDFの文字は選択・検索できません(日本語フォントをそのまま使うためです)。</li>
+<li>紙面の比率(A4)は固定です。複数ページには分かれません。はみ出さないよう、文字や画像の大きさを調整してください。</li>
+<li>PNG/PDFは scriptが動いたあとの状態で保存されます。</li>
+<li>アプリ内ビューアなど、ダウンロードが禁止されている環境では、自動保存されないことがあります。その場合は表示される画面の「保存」ボタンか「共有」、または画像の長押しを使うか、ファイルをChromeなどで直接開いてください。</li>
+</ul>
+
+<h2>8. よく使うCSS例</h2>
+<pre><code>/* 2段組みにする */
+.columns{ column-count:2; column-gap:20px; }
+/* 横に3つ並べる */
+.grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+/* 見出しの飾り */
+.headline{ border-bottom:3px solid #222; }
+/* 縦書き */
+.vertical{ writing-mode:vertical-rl; }</code></pre>
+
+<h2>9. 全体のひな形</h2>
+<pre><code>&lt;newspaper&gt;
+  &lt;masthead&gt;
+    &lt;title&gt;○○新聞&lt;/title&gt;
+    &lt;date&gt;YYYY年M月D日(ddd)&lt;/date&gt;
+  &lt;/masthead&gt;
+  &lt;article&gt;
+    &lt;headline&gt;見出し&lt;/headline&gt;
+    &lt;p&gt;本文&lt;/p&gt;
+  &lt;/article&gt;
+&lt;/newspaper&gt;</code></pre>
+</main>
+<script>
+const TAGS=("newspaper:div:紙面全体|masthead:header:題字まわり|title:h1:新聞名|subtitle:h3:副題|date:span:日付(自動書式)|time:span:時刻(自動書式)|edition:span:版|issue:span:号数|price:span:価格|weather:div:天気欄|"+
+"section:section:セクション|article:article:記事|kicker:div:見出し上の小見出し|headline:h2:見出し|subhead:h3:小見出し|byline:div:署名|lead:p:リード文|p:p:段落|quote:blockquote:引用|caption:figcaption:写真説明|"+
+"figure:figure:図・写真のまとまり|img:img:画像|column:div:縦カラム|columns:div:段組(複数列)|row:div:横並び|grid:div:グリッド|box:div:囲み|sidebar:aside:脇記事|ad:div:広告枠|hr:hr:区切り線|spacer:div:余白|header:header:見出し部|footer:footer:奥付|"+
+"b:b:太字|i:i:斜体|u:u:下線|s:s:取り消し線|mark:mark:蛍光ペン|small:small:小さい字|big:span:大きい字|sup:sup:上付き|sub:sub:下付き|br:br:改行|a:a:リンク|"+
+"ul:ul:箇条書き|ol:ol:番号リスト|li:li:リスト項目|table:table:表|tr:tr:表の行|td:td:表のセル|th:th:表の見出しセル|code:code:コード|pre:pre:整形済み文字").split('|').map(s=>s.split(':'));
+const tb=document.querySelector('#tb tbody');
+const draw=q=>{ tb.innerHTML=TAGS.filter(t=>!q||t.join(' ').includes(q)).map(([n,h,d])=>
+  `<tr><td><code>&lt;${n}&gt;</code></td><td>${d}</td><td><code>.${n}</code></td><td><code>${h}</code></td></tr>`).join('') };
+draw('');
+document.getElementById('q').oninput=e=>draw(e.target.value.trim());
+</script>
+</body>
+</html>

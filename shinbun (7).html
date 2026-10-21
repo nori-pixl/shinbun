@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新聞メーカー — XML + CSS</title>
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:system-ui,"Hiragino Sans","Yu Gothic",sans-serif;background:#1e1e1e;color:#ddd;font-size:14px}
+body{display:flex;flex-direction:column}
+header{display:flex;gap:6px;align-items:center;padding:6px 10px;background:#2d2d30;border-bottom:1px solid #111;flex-wrap:wrap}
+header h1{font-size:15px;margin:0 8px 0 0;color:#fff;white-space:nowrap}
+button,a.btn{background:#3c3c3c;color:#eee;border:1px solid #555;border-radius:4px;padding:5px 11px;cursor:pointer;font-size:13px;text-decoration:none;white-space:nowrap}
+button:hover,a.btn:hover{background:#505050}
+button.main{background:#0e639c;border-color:#0e639c}
+button.save{background:#b5442a;border-color:#b5442a}
+.sp{flex:1}
+#lbl{font-size:12px;color:#aaa}
+#app{flex:1;display:grid;grid-template-columns:230px minmax(0,1fr) minmax(0,1fr);min-height:0}
+#side{background:#252526;overflow:auto;border-right:1px solid #111;display:flex;flex-direction:column;min-height:0}
+#tools{display:flex;gap:4px;padding:6px;flex-wrap:wrap;border-bottom:1px solid #111}
+#tools button{padding:3px 8px}
+#newrow{display:flex;gap:4px;padding:6px}
+#newrow input{flex:1;min-width:0;background:#3c3c3c;color:#eee;border:1px solid #555;border-radius:3px;padding:4px}
+#list{list-style:none;margin:0;padding:0;overflow:auto;flex:1}
+#list li{display:flex;align-items:center;gap:6px;padding:4px 8px;cursor:pointer;border-bottom:1px solid #2d2d2d}
+#list li.on{background:#094771}
+#list li:hover{background:#2a2d2e}
+#list .ic{width:24px;text-align:center;flex:none}
+#list .ic img{width:24px;height:24px;object-fit:cover;border-radius:2px;vertical-align:middle}
+#list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+#list .nm b{background:#b5442a;color:#fff;font-size:10px;padding:0 4px;border-radius:3px}
+#list .del,#list .rn{padding:1px 5px;font-size:12px;background:none;border:0;flex:none}
+#list li.dir{font-weight:bold}
+#list .tg{width:14px;flex:none;text-align:center;color:#aaa;font-size:11px}
+#hint{padding:8px;font-size:11px;color:#888;border-top:1px solid #111}
+#edcol{display:flex;flex-direction:column;min-width:0;min-height:0}
+#fname{padding:4px 10px;background:#2d2d30;font-size:12px;color:#ccc;border-bottom:1px solid #111}
+#ed{flex:1;min-height:0}
+#pvpane{background:#6b6b6b;display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid #111}
+#pvbar{display:none;gap:6px;padding:6px 10px;background:#2d2d30;align-items:center}
+#pvwrap{flex:1;display:flex;justify-content:center;align-items:center;overflow:hidden;min-height:0}
+#pvbox{position:relative;overflow:hidden;box-shadow:0 2px 14px #000a;background:#fff}
+#pv{position:absolute;left:0;top:0;width:794px;height:1123px;border:0;background:#fff;transform-origin:0 0}
+#status{padding:4px 10px;font-size:12px;background:#007acc;color:#fff;min-height:24px}
+#status.err{background:#a1260d}
+#res{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:30;padding:14px}
+#res.on{display:flex}
+#res .card{background:#2d2d30;border-radius:8px;padding:14px;max-width:420px;width:100%;max-height:100%;overflow:auto;text-align:center}
+#res img{max-width:100%;max-height:50vh;background:#fff;margin-bottom:8px}
+#res p{font-size:12px;color:#bbb;margin:6px 0}
+#res .row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.m{display:none}
+@media(max-width:899px){
+  #app{grid-template-columns:minmax(0,1fr)}
+  .m{display:inline-block}
+  #side{position:fixed;top:0;bottom:0;left:0;width:82%;max-width:320px;z-index:20;transform:translateX(-105%);transition:transform .2s}
+  #side.on{transform:none;box-shadow:0 0 30px #000}
+  #pvpane{position:fixed;inset:0;z-index:25;transform:translateX(-105%);visibility:hidden}
+  #pvpane.on{transform:none;visibility:visible}
+  #pvbar{display:flex}
+}
+</style>
+</head>
+<body>
+<header>
+  <button class="m" id="menu">☰ ファイル</button>
+  <h1>📰 新聞メーカー</h1>
+  <span id="lbl"></span>
+  <span class="sp"></span>
+  <button class="main m" id="prev">プレビュー</button>
+  <button class="save" data-k="png">PNG保存</button>
+  <button class="save" data-k="pdf">PDF保存</button>
+  <a class="btn" href="manual.html" target="_blank">説明書</a>
+</header>
+<div id="app">
+  <aside id="side">
+    <div id="tools">
+      <button id="imgBtn" title="画像を追加(images/に入ります)">🖼 画像追加</button>
+      <button id="dirBtn" title="フォルダを開く">📁 フォルダ</button>
+      <button id="fileBtn" title="ファイルを複数選んで読み込む">📄 ファイル</button>
+      <button id="bk" title="全ファイルをJSONで保存">💾</button>
+      <button id="ld" title="JSONから読み込み">📂</button>
+    </div>
+    <div id="newrow"><input id="nn" placeholder="新規ファイル名 例: page2.xml"><button id="nb" title="ファイル作成(末尾に / でフォルダ)">＋</button><button id="nd" title="フォルダ作成">📁＋</button></div>
+    <ul id="list"></ul>
+    <div id="hint">画像のアイコンをタップ→XMLに画像をタップすると、XMLのカーソル位置に &lt;img&gt; が入ります。lt;img画像をタップすると、XMLのカーソル位置に &lt;img&gt; が入ります。gt;を挿入 / 名前をタップ→表示・保存。📁タップで開閉、✏️で名前変更、🗑で削除(フォルダは中身ごと)。</div>
+  </aside>
+  <div id="edcol"><div id="fname">&nbsp;</div><div id="ed"></div></div>
+  <div id="pvpane">
+    <div id="pvbar"><button id="close">← 編集に戻る</button><span class="sp"></span><button class="save" data-k="png">PNG保存</button><button class="save" data-k="pdf">PDF保存</button></div>
+    <div id="pvwrap"><div id="pvbox"><iframe id="pv" sandbox="allow-scripts allow-same-origin"></iframe></div></div>
+  </div>
+</div>
+<div id="status">読み込み中…</div>
+<div id="res"><div class="card">
+  <img alt="">
+  <p>自動で保存されないときは、下の「保存」を押すか、画像を長押ししてください。</p>
+  <div class="row"><a class="btn" download></a><button class="share">共有</button><button id="resClose">閉じる</button></div>
+</div></div>
+<input type="file" id="imgIn" accept="image/*" multiple hidden>
+<input type="file" id="dirIn" webkitdirectory multiple hidden>
+<input type="file" id="fileIn" multiple hidden>
+<input type="file" id="jsIn" accept=".json,application/json" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+<script>
+// タグ名:HTMLタグ:説明
+const TAGS = ("newspaper:div:紙面全体|masthead:header:題字まわり|title:h1:新聞名|subtitle:h3:副題|date:span:日付(自動書式)|time:span:時刻(自動書式)|edition:span:版|issue:span:号数|price:span:価格|weather:div:天気欄|"+
+"section:section:セクション|article:article:記事|kicker:div:見出し上の小見出し|headline:h2:見出し|subhead:h3:小見出し|byline:div:署名|lead:p:リード文|p:p:段落|quote:blockquote:引用|caption:figcaption:写真説明|"+
+"figure:figure:図・写真のまとまり|img:img:画像|column:div:縦カラム|columns:div:段組(複数列)|row:div:横並び|grid:div:グリッド|box:div:囲み|sidebar:aside:脇記事|ad:div:広告枠|hr:hr:区切り線|spacer:div:余白|header:header:見出し部|footer:footer:奥付|"+
+"b:b:太字|i:i:斜体|u:u:下線|s:s:取り消し線|mark:mark:蛍光ペン|small:small:小さい字|big:span:大きい字|sup:sup:上付き|sub:sub:下付き|br:br:改行|a:a:リンク|"+
+"ul:ul:箇条書き|ol:ol:番号リスト|li:li:リスト項目|table:table:表|tr:tr:表の行|td:td:表のセル|th:th:表の見出しセル|code:code:コード|pre:pre:整形済み文字").split('|').map(s=>s.split(':'));
+const MAP = Object.fromEntries(TAGS.map(t=>[t[0],t[1]]));
+const VOID = ['img','br','hr'];
+const PW = 794, PH = 1123;   // A4縦(96dpi)。比率固定
+
+const XML0 = `<newspaper>
+  <masthead>
+    <title>みらい新聞</title>
+    <subtitle>文字だけでつくる、ぼくらの新聞</subtitle>
+    <date>YYYY年M月D日(ddd)</date>
+    <edition>第1号</edition>
+  </masthead>
+
+  <section>
+    <article class="top" id="a1">
+      <kicker>ニュース</kicker>
+      <headline>町に新しい図書館がオープン</headline>
+      <byline>文・みらい記者</byline>
+      <figure>
+        <img src="images/photo.svg" alt="写真"/>
+        <caption>オープン初日の様子</caption>
+      </figure>
+      <lead>市内中心部に新しい図書館がオープンした。</lead>
+      <p>初日から多くの家族連れで賑わい、<b>児童書コーナー</b>には長い列ができた。<mark>館内は自由に見学できる。</mark></p>
+      <quote>「本のある町は、いい町です」</quote>
+    </article>
+
+    <sidebar>
+      <headline>今日の天気</headline>
+      <weather>晴れ ときどき くもり</weather>
+      <hr/>
+      <headline>イベント</headline>
+      <ul><li>10日 読み聞かせ会</li><li>15日 工作教室</li></ul>
+    </sidebar>
+  </section>
+
+  <ad>ここに広告が入ります</ad>
+  <footer>© みらい新聞社　<b id="btn">【クリック】</b></footer>
+
+  <style><![CDATA[
+    #btn{color:#b00;cursor:pointer}
+  ]]></style>
+  <script><![CDATA[
+    // scriptタグは紙面ぜんぶ(document)を制御できます
+    document.getElementById('btn').onclick = () => {
+      document.querySelector('.top .headline').textContent = 'クリックで見出しが変わった!';
+    };
+  ]]><\/script>
+</newspaper>`;
+
+const CSS0 = `body{margin:0;font-family:"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif;color:#222}
+.newspaper{height:100%;padding:30px 36px;background:#f7f3e6;overflow:hidden}
+.masthead{text-align:center;border-top:4px double #222;border-bottom:4px double #222;padding:8px 0;margin-bottom:14px}
+.title{margin:0;font-size:52px;letter-spacing:.2em}
+.subtitle{margin:0;font-size:13px;font-weight:normal;color:#555}
+.date,.time,.edition,.issue,.price{margin:0 10px;font-size:14px}
+.section{display:grid;grid-template-columns:2fr 1fr;gap:18px}
+.article{border-bottom:1px solid #999;padding-bottom:10px}
+.kicker{color:#a00;font-weight:bold;font-size:12px}
+.headline{margin:2px 0 6px;font-size:22px;line-height:1.3}
+.top .headline{font-size:34px}
+.byline{font-size:12px;color:#666;margin-bottom:6px}
+.lead{font-weight:bold;margin:8px 0}
+.p{margin:8px 0;line-height:1.8;text-align:justify}
+.quote{margin:10px 0;padding-left:10px;border-left:4px solid #999;font-style:italic}
+.figure{margin:8px 0}
+.figure img{width:100%}
+.caption{font-size:12px;color:#666}
+.sidebar{background:#eee7d0;padding:12px}
+.sidebar .headline{font-size:18px}
+.ad{margin:16px 0;border:1px dashed #888;text-align:center;padding:24px;color:#888}
+.footer{margin-top:10px;border-top:1px solid #222;padding-top:6px;font-size:12px;text-align:center}
+.columns{column-count:2;column-gap:20px}
+.row{display:flex;gap:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.box{border:1px solid #222;padding:8px}
+.spacer{height:20px}
+`;
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="260"><rect width="480" height="260" fill="#cfc8b4"/><text x="240" y="140" text-anchor="middle" font-size="30" fill="#555">PHOTO</text></svg>`;
+const DEF = {'news.xml':{text:XML0},'style.css':{text:CSS0},'images/photo.svg':{url:'data:image/svg+xml;utf8,'+encodeURIComponent(SVG)}};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const extOf = p => (p.split('.').pop()||'').toLowerCase();
+const isImg = p => /^(png|jpe?g|gif|webp|svg|bmp)$/.test(extOf(p));
+const LANG = {xml:'xml',css:'css',js:'javascript',json:'json',md:'markdown',html:'html',htm:'html',svg:'xml',yml:'yaml',yaml:'yaml',ts:'typescript',py:'python',csv:'plaintext',txt:'plaintext'};
+const dirs = new Set(), closed = new Set();
+const MAXBIN = 30*1024*1024;
+// どんなファイルでも取り込む: 画像→画像 / テキストっぽい→テキスト / それ以外→バイナリ(開く・保存・削除のみ)
+async function readAny(f, p){
+  if(isImg(p)) return {url:await readURL(f)};
+  if(TEXTEXT.test(extOf(p))) return {text:await f.text()};
+  const head = new Uint8Array(await f.slice(0,8192).arrayBuffer());
+  const bin = head.includes(0);
+  if(!bin && f.size<5*1024*1024) return {text:await f.text()};
+  if(f.size>MAXBIN) return null;
+  return {url:await readURL(f), bin:true};
+}
+const allDirs = ()=>{ const a = new Set(dirs); for(const k of files.keys()){ const q=k.split('/'); q.pop(); let c=''; for(const x of q){ c+=(c?'/':'')+x; a.add(c); } } return a; };
+const pv = $('#pv'), st = $('#status'), mq = matchMedia('(min-width:900px)');
+let files = new Map(), models = new Map(), active = null, mainXml = null, mode = 'mem', root = null, editor, idbWarned = false;
+
+function say(m, err){ st.className = err ? 'err' : ''; st.textContent = m; }
+
+// ---------- 保存先: ブラウザ内(IndexedDB) / PCのフォルダ(File System Access API) ----------
+const idb = () => new Promise((res,rej)=>{ const r=indexedDB.open('shinbun',1); r.onupgradeneeded=()=>r.result.createObjectStore('f'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+async function idbAll(){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction('f'),s=t.objectStore('f'),k=s.getAllKeys(),v=s.getAll(); t.oncomplete=()=>res(k.result.map((p,i)=>[p,v.result[i]])); t.onerror=()=>rej(t.error); }); }
+async function idbOp(fn){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction('f','readwrite'); fn(t.objectStore('f')); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+
+async function fsHandle(p, create){
+  const parts = p.split('/'); let d = root;
+  for(const n of parts.slice(0,-1)) d = await d.getDirectoryHandle(n,{create});
+  return d.getFileHandle(parts.pop(),{create});
+}
+async function persist(p){
+  const f = files.get(p); if(!f) return;
+  try{
+    if(mode==='fs'){
+      const h = await fsHandle(p,true), w = await h.createWritable();
+      await w.write(f.url ? await (await fetch(f.url)).blob() : f.text); await w.close();
+    } else await idbOp(s=>s.put(f,p));
+  }catch(e){
+    if(!idbWarned){ idbWarned = true; say('この環境では保存できません: '+(e.message||e)+'(💾でバックアップを取ってください)', true); }
+  }
+}
+async function mkdirP(p){
+  dirs.add(p);
+  try{
+    if(mode==='fs'){ let d=root; for(const x of p.split('/')) d = await d.getDirectoryHandle(x,{create:true}); }
+    else await idbOp(s=>s.put({dir:1},p+'/'));
+  }catch(e){ say('フォルダ作成に失敗: '+(e.message||e), true); }
+}
+async function rmDir(p){
+  for(const k of [...files.keys()]) if(k.startsWith(p+'/')){ files.delete(k); const m=models.get(k); if(m){ m.dispose(); models.delete(k); } if(active===k) active=null; }
+  for(const d of [...dirs]) if(d===p||d.startsWith(p+'/')) dirs.delete(d);
+  try{
+    if(mode==='fs'){
+      const parts=p.split('/'), n=parts.pop(); let d=root;
+      for(const x of parts) d = await d.getDirectoryHandle(x);
+      await d.removeEntry(n,{recursive:true});
+    } else await idbOp(s=>{ const r=s.openCursor(); r.onsuccess=()=>{ const c=r.result; if(!c) return; const k=String(c.key); if(k.startsWith(p+'/')) c.delete(); c.continue(); }; });
+  }catch(e){ say('削除に失敗: '+(e.message||e), true); }
+  if(mainXml && !files.has(mainXml)) mainXml = [...files.keys()].find(k=>extOf(k)==='xml' && files.get(k).text!=null) || null;
+  if(!active){ if(mainXml) openFile(mainXml); else { editor.setModel(null); $('#fname').innerHTML='&nbsp;'; } }
+  renderList(); sched();
+}
+async function renameEntry(p, isDir){
+  const nn = prompt((isDir?'フォルダ':'ファイル')+'の新しい名前(パス):', p); if(nn==null) return;
+  const n = nn.trim().replace(/^\/+|\/+$/g,''); if(!n || n===p) return;
+  if(isDir){
+    if(n.startsWith(p+'/')) return say('自分の中には移せません', true);
+    const ks=[...files.keys()].filter(k=>k.startsWith(p+'/')), ds=[...dirs].filter(d=>d===p||d.startsWith(p+'/'));
+    if(ks.some(k=>files.has(n+k.slice(p.length)))) return say('同名のファイルがあります', true);
+    for(const k of ks){ const nk=n+k.slice(p.length), f=files.get(k); const wasActive = active===k, wasMain = mainXml===k;
+      files.set(nk,f); const m=models.get(k); if(m){ models.delete(k); models.set(nk,m); }
+      files.delete(k); if(wasActive) active=nk; if(wasMain) mainXml=nk; await persist(nk); }
+    await rmDir_storage(p);
+    for(const d of ds) await mkdirP(n+d.slice(p.length));
+    dirs.delete(p);
+  } else {
+    if(files.has(n)) return say('同名のファイルがあります', true);
+    const f=files.get(p), wasActive=active===p, wasMain=mainXml===p, m=models.get(p);
+    files.set(n,f); files.delete(p); if(m){ models.delete(p); models.set(n,m); }
+    if(wasActive){ active=n; $('#fname').textContent=n; } if(wasMain) mainXml=n;
+    await persist(n); await rmFile_storage(p);
+  }
+  renderList(); sched(); say('名前を変更しました: '+n);
+}
+async function rmFile_storage(p){
+  try{
+    if(mode==='fs'){ const parts=p.split('/'), nm=parts.pop(); let d=root; for(const x of parts) d=await d.getDirectoryHandle(x); await d.removeEntry(nm); }
+    else await idbOp(s=>s.delete(p));
+  }catch(e){}
+}
+async function rmDir_storage(p){
+  try{
+    if(mode==='fs'){ const parts=p.split('/'), nm=parts.pop(); let d=root; for(const x of parts) d=await d.getDirectoryHandle(x); await d.removeEntry(nm,{recursive:true}); }
+    else await idbOp(s=>{ const r=s.openCursor(); r.onsuccess=()=>{ const c=r.result; if(!c) return; const k=String(c.key); if(k.startsWith(p+'/')) c.delete(); c.continue(); }; });
+  }catch(e){}
+}
+async function unlink(p){
+  files.delete(p);
+  const m = models.get(p); if(m){ m.dispose(); models.delete(p); }
+  try{
+    if(mode==='fs'){
+      const parts=p.split('/'), n=parts.pop(); let d=root;
+      for(const x of parts) d = await d.getDirectoryHandle(x);
+      await d.removeEntry(n);
+    } else await idbOp(s=>s.delete(p));
+  }catch(e){ say('削除に失敗: '+(e.message||e), true); }
+  if(mainXml===p) mainXml = [...files.keys()].find(k=>extOf(k)==='xml') || null;
+  if(active===p){ active = null; if(mainXml) openFile(mainXml); else { editor.setModel(null); $('#fname').innerHTML='&nbsp;'; } }
+  renderList(); sched();
+}
+async function addFile(p, data, open){
+  files.set(p, data); await persist(p);
+  const m = models.get(p); if(m && data.text!=null && m.getValue()!==data.text) m.setValue(data.text);
+  if(open && data.text!=null) openFile(p); else renderList();
+  sched();
+}
+const readURL = f => new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); });
+
+// ---------- 一覧 ----------
+function renderList(){
+  const ul = $('#list'); ul.innerHTML = '';
+  const D = allDirs(), kids = new Map(); const add=(par,x)=>{ if(!kids.has(par)) kids.set(par,{d:[],f:[]}); kids.get(par)[x.d?'d':'f'].push(x); };
+  for(const d of D){ const q=d.split('/'); q.pop(); add(q.join('/'),{d:true,p:d}); }
+  for(const k of files.keys()){ const q=k.split('/'); q.pop(); add(q.join('/'),{p:k}); }
+  const nameOf = p => p.split('/').pop();
+  const walk = (par,depth)=>{
+    const c = kids.get(par); if(!c) return;
+    c.d.sort((a,b)=>a.p.localeCompare(b.p)); c.f.sort((a,b)=>a.p.localeCompare(b.p));
+    for(const x of c.d){
+      const p = x.p, li = document.createElement('li'), op = !closed.has(p); li.className='dir'; li.style.paddingLeft=(8+depth*14)+'px';
+      li.innerHTML = `<span class="tg">${op?'▼':'▶'}</span><span class="ic">${op?'📂':'📁'}</span><span class="nm">${esc(nameOf(p))}</span><button class="rn" title="名前変更">✏️</button><button class="del" title="フォルダごと削除">🗑</button>`;
+      li.onclick = ()=>{ op ? closed.add(p) : closed.delete(p); renderList(); };
+      li.querySelector('.rn').onclick = e=>{ e.stopPropagation(); renameEntry(p,true); };
+      const d = li.querySelector('.del');
+      d.onclick = async e=>{ e.stopPropagation();
+        if(d.dataset.s) await rmDir(p);
+        else { d.dataset.s=1; d.textContent='中身ごと?'; setTimeout(()=>{ d.dataset.s=''; d.textContent='🗑'; },3000); } };
+      ul.appendChild(li);
+      if(op) walk(p,depth+1);
+    }
+    for(const x of c.f){
+      const p = x.p, f = files.get(p), li = document.createElement('li'); if(p===active) li.className='on'; li.style.paddingLeft=(8+depth*14+14)+'px';
+      const isI = f.url && !f.bin;
+      const ic = isI ? `<img src="${f.url}">` : f.bin ? '📦' : ({xml:'📰',css:'🎨',js:'📜'}[extOf(p)]||'📝');
+      li.innerHTML = `<span class="ic">${ic}</span><span class="nm">${esc(nameOf(p))}${p===mainXml?' <b>紙面</b>':''}</span><button class="rn" title="名前変更">✏️</button><button class="del" title="削除">🗑</button>`;
+      const close = ()=>{ if(!mq.matches) $('#side').classList.remove('on'); };
+      li.querySelector('.ic').onclick = ()=>{ isI ? insertImg(p) : f.bin ? viewBin(p) : openFile(p); close(); };
+      li.querySelector('.nm').onclick = ()=>{ f.url ? viewBin(p) : openFile(p); if(!f.url) close(); };
+      li.querySelector('.rn').onclick = e=>{ e.stopPropagation(); renameEntry(p,false); };
+      const d = li.querySelector('.del');
+      d.onclick = async e=>{ e.stopPropagation();
+        if(d.dataset.s) await unlink(p);
+        else { d.dataset.s=1; d.textContent='本当に?'; setTimeout(()=>{ d.dataset.s=''; d.textContent='🗑'; },3000); } };
+      ul.appendChild(li);
+    }
+  };
+  walk('',0);
+  $('#lbl').textContent = mainXml ? '紙面: '+mainXml : '';
+}
+async function viewBin(p){
+  const f = files.get(p); if(!f||!f.url) return;
+  const b = await (await fetch(f.url)).blob();
+  showSave(b, p.split('/').pop(), /^image\//.test(b.type)||isImg(p) ? b : null, true);
+}
+function openFile(p){
+  const f = files.get(p); if(!f || f.text==null) return;
+  let m = models.get(p);
+  if(!m){
+    m = monaco.editor.createModel(f.text, LANG[extOf(p)]||'plaintext');
+    m.onDidChangeContent(()=>{ f.text = m.getValue(); clearTimeout(f.t); f.t = setTimeout(()=>persist(p),600); sched(); });
+    models.set(p, m);
+  }
+  editor.setModel(m); active = p;
+  if(extOf(p)==='xml') mainXml = p;
+  $('#fname').textContent = p; renderList(); sched();
+}
+function insertImg(p){
+  if(!mainXml) return say('XMLファイルがありません', true);
+  if(!active || extOf(active)!=='xml') openFile(mainXml);
+  const m = editor.getModel(), t = m.getValue(), off = m.getOffsetAt(editor.getPosition());
+  const o = t.match(/^\s*(?:<\?[\s\S]*?\?>\s*)?<[^>]+>/), c = t.lastIndexOf('</');
+  let range = editor.getSelection();
+  if(o && c>=0 && (off < o[0].length || off > c)){ const q = m.getPositionAt(c); range = new monaco.Range(q.lineNumber,q.column,q.lineNumber,q.column); }
+  editor.executeEdits('img',[{range,text:`<img src="${p}" alt=""/>\n`}]); editor.focus();
+}
+
+// ---------- 紙面の組み立て ----------
+function conv(n){
+  if(n.nodeType===3||n.nodeType===4) return esc(n.nodeValue);
+  if(n.nodeType!==1) return '';
+  const t = n.tagName;
+  if(t==='style') return '<style>'+n.textContent.replace(/<\/style/gi,'<\\/style')+'</style>';
+  if(t==='script') return '<script>'+n.textContent.replace(/<\//g,'<\\/')+'<\/script>';
+  const h = MAP[t] || 'div';
+  let a = ` class="${esc((t+' '+(n.getAttribute('class')||'')).trim())}"`;
+  for(const at of n.attributes) if(at.name!=='class') a += ` ${at.name}="${esc(at.value)}"`;
+  if(t==='date'||t==='time') a += ` data-fmt="${esc(n.textContent.trim())}"`;
+  if(VOID.includes(h)) return `<${h}${a}>`;
+  return `<${h}${a}>${[...n.childNodes].map(conv).join('')}</${h}>`;
+}
+
+// iframe内で動く部分(日付・時刻の更新 / はみ出し検知 / PNG・PDF作成)
+const RT = '('+function(){
+  const W=['日','月','火','水','木','金','土'], z=n=>String(n).padStart(2,'0');
+  const fmt=(f,d)=>f.replace(/YYYY|ddd|HH|mm|ss|M|D|H/g,k=>({YYYY:d.getFullYear(),ddd:W[d.getDay()],HH:z(d.getHours()),mm:z(d.getMinutes()),ss:z(d.getSeconds()),M:d.getMonth()+1,D:d.getDate(),H:d.getHours()})[k]);
+  const tick=()=>{const d=new Date();document.querySelectorAll('[data-fmt]').forEach(e=>e.textContent=fmt(e.dataset.fmt,d))};
+  tick(); setInterval(tick,1000);
+  const pg=document.getElementById('page');
+  const over=e=>e&&(e.scrollHeight>e.clientHeight+2||e.scrollWidth>e.clientWidth+2);
+  setTimeout(()=>{ if(over(pg)||over(pg.firstElementChild)) parent.postMessage({warn:'紙面がA4からはみ出しています(はみ出した部分は印刷されません)'},'*'); },500);
+  const L=u=>new Promise((r,j)=>{const s=document.createElement('script');s.src=u;s.onload=r;s.onerror=()=>j('ライブラリを読み込めません');document.head.appendChild(s)});
+  addEventListener('message',async e=>{
+    const k=e.data; if(k!=='png'&&k!=='pdf') return;
+    try{
+      if(!window.html2canvas) await L('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      const cv=await html2canvas(pg,{scale:3,useCORS:true,backgroundColor:'#fff',width:794,height:1123,windowWidth:794,windowHeight:1123});
+      const png=await new Promise(r=>cv.toBlob(r,'image/png'));
+      if(k==='png') return parent.postMessage({done:'png',blob:png},'*');
+      if(!window.jspdf) await L('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const pdf=new jspdf.jsPDF('p','mm','a4'); pdf.addImage(cv.toDataURL('image/jpeg',.95),'JPEG',0,0,210,297);
+      parent.postMessage({done:'pdf',blob:pdf.output('blob'),png},'*');
+    }catch(err){ parent.postMessage({err:'保存に失敗: '+err},'*'); }
+  });
+}.toString()+')()';
+
+function build(){
+  if(!mainXml){ say('XMLファイルがありません(＋で作成)', true); return null; }
+  const find = u => { u = u.replace(/^\.?\//,''); let f = files.get(u);
+    if(!f){ const b = u.split('/').pop(), k = [...files.keys()].find(k=>k.split('/').pop()===b && files.get(k).url); f = k && files.get(k); }
+    return f && f.url; };
+  let xml = files.get(mainXml).text.replace(/src="([^"]+)"/g,(m,u)=>find(u)?`src="${find(u)}"`:m);
+  let css = [...files.keys()].filter(p=>extOf(p)==='css').sort().map(p=>files.get(p).text).join('\n')
+    .replace(/url\(\s*['"]?([^)'"]+?)['"]?\s*\)/g,(m,u)=>find(u)?`url("${find(u)}")`:m)
+    .replace(/<\/style/gi,'<\\/style');
+  const doc = new DOMParser().parseFromString(xml,'application/xml'), pe = doc.querySelector('parsererror');
+  if(pe){ say('XMLエラー: '+pe.textContent.split('\n')[0], true); return null; }
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>html,body{margin:0;background:#fff}#page{width:${PW}px;height:${PH}px;overflow:hidden;position:relative;background:#fff}#page>*{box-sizing:border-box}</style><style>${css}</style>
+<script>window.onerror=(m,s,l)=>parent.postMessage({err:'scriptエラー: '+m+' (行 '+l+')'},'*')<\/script></head>
+<body><div id="page">${conv(doc.documentElement)}</div><script>${RT}<\/script></body></html>`;
+}
+function render(){
+  const h = build(); if(h==null) return Promise.resolve(false);
+  say('OK(紙面 A4)');
+  return new Promise(res=>{ pv.onload = ()=>res(true); pv.srcdoc = h; });
+}
+let timer; function sched(){ if(!mq.matches) return; clearTimeout(timer); timer = setTimeout(render,500); }
+
+// ---------- 保存(PNG / PDF) ----------
+async function exportAs(k){
+  say('作成中…');
+  if(await render()) setTimeout(()=>pv.contentWindow.postMessage(k,'*'),700);
+}
+function showSave(blob, name, prev, noAuto){
+  const r = $('#res'), a = r.querySelector('a'), im = r.querySelector('img'), sh = r.querySelector('.share');
+  a.href = URL.createObjectURL(blob); a.download = name; a.textContent = '保存: '+name;
+  im.style.display = prev ? '' : 'none'; if(prev) im.src = URL.createObjectURL(prev);
+  const file = new File([blob], name, {type:blob.type});
+  sh.style.display = (navigator.canShare && navigator.canShare({files:[file]})) ? '' : 'none';
+  sh.onclick = ()=>navigator.share({files:[file]}).catch(()=>{});
+  r.classList.add('on'); if(!noAuto){ a.click(); say('保存しました: '+name); }
+}
+addEventListener('message',e=>{
+  const d = e.data; if(!d || e.source!==pv.contentWindow) return;
+  if(d.err) say(d.err,true);
+  if(d.warn) say(d.warn,true);
+  if(d.done==='png') showSave(d.blob,'shinbun.png',d.blob);
+  if(d.done==='pdf') showSave(d.blob,'shinbun.pdf',d.png);
+});
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>exportAs(b.dataset.k));
+$('#resClose').onclick = ()=>$('#res').classList.remove('on');
+
+// ---------- 表示まわり ----------
+function fit(){
+  const w = $('#pvwrap'), s = Math.max(.1, Math.min((w.clientWidth-20)/PW, (w.clientHeight-20)/PH));
+  $('#pvbox').style.cssText = `width:${PW*s}px;height:${PH*s}px`; pv.style.transform = `scale(${s})`;
+}
+new ResizeObserver(fit).observe($('#pvwrap'));
+$('#menu').onclick = ()=>$('#side').classList.toggle('on');
+$('#prev').onclick = async ()=>{ if(await render()) $('#pvpane').classList.add('on'); };
+$('#close').onclick = ()=>$('#pvpane').classList.remove('on');
+
+// ---------- ファイル操作 ----------
+$('#nb').onclick = ()=>{
+  let n = $('#nn').value.trim().replace(/^\/+/,''); if(!n) return;
+  if(n.endsWith('/')){ mkdirP(n.replace(/\/+$/,'')).then(()=>{ renderList(); }); $('#nn').value=''; return; }
+  if(!/\.\w+$/.test(n)) n += '.xml';
+  if(files.has(n)) openFile(n);
+  else addFile(n,{text: extOf(n)==='xml' ? '<newspaper>\n  \n</newspaper>' : ''}, true);
+  $('#nn').value = '';
+};
+$('#nd').onclick = ()=>{ const n=$('#nn').value.trim().replace(/^\/+|\/+$/g,''); if(!n) return say('フォルダ名を入力してください', true); mkdirP(n).then(()=>{ renderList(); say('フォルダを作りました: '+n); }); $('#nn').value=''; };
+$('#nn').onkeydown = e=>{ if(e.key==='Enter') $('#nb').click(); };
+$('#imgBtn').onclick = ()=>$('#imgIn').click();
+function fitImage(f){
+  return new Promise(async res=>{
+    const u = await readURL(f);
+    if(f.type==='image/svg+xml'||f.type==='image/gif') return res(u);
+    const im = new Image();
+    im.onload = ()=>{ const s = Math.min(1,1800/Math.max(im.width,im.height)); if(s===1) return res(u);
+      const c = document.createElement('canvas'); c.width=im.width*s; c.height=im.height*s; c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      res(c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.9)); };
+    im.onerror = ()=>res(u); im.src = u;
+  });
+}
+$('#imgIn').onchange = async e=>{
+  for(const f of e.target.files){
+    let n = 'images/'+f.name.replace(/[^\w.\-]/g,'_'), i = 2;
+    while(files.has(n)) n = n.replace(/(-\d+)?(\.\w+)$/,`-${i++}$2`);
+    await addFile(n,{url:await fitImage(f)});
+  }
+  e.target.value = '';
+};
+$('#bk').onclick = ()=>showSave(new Blob([JSON.stringify(Object.assign(Object.fromEntries([...dirs].map(d=>[d+'/',{dir:1}])),Object.fromEntries([...files].map(([k,v])=>[k,v.text!=null?{text:v.text}:{url:v.url,bin:v.bin}]))))],{type:'application/json'}),'shinbun-backup.json');
+$('#ld').onclick = ()=>$('#jsIn').click();
+$('#jsIn').onchange = async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{ const o = JSON.parse(await f.text()); for(const p in o){ if(p.endsWith('/')) await mkdirP(p.slice(0,-1)); else await addFile(p,o[p]); } if(!active&&mainXml) openFile(mainXml); say('読み込みました'); }
+  catch(err){ say('読み込めません: '+err.message,true); }
+  e.target.value = '';
+};
+const TEXTEXT = /^(xml|css|js|json|md|txt|html)$/;
+async function importFiles(list, replace){
+  if(replace){
+    files.clear(); dirs.clear(); models.forEach(m=>m.dispose()); models.clear(); active = null; mainXml = null; mode = 'mem'; root = null;
+    try{ await idbOp(s=>s.clear()); }catch(e){}
+  }
+  let n = 0, firstXml = null, big = 0;
+  for(const f of list){
+    const p = (f.webkitRelativePath ? f.webkitRelativePath.split('/').slice(1).join('/') : f.name);
+    if(!p || /(^|\/)(\.git|node_modules)(\/|$)/.test(p)) continue;
+    let d;
+    try{ d = await readAny(f,p); }catch(e){ d = null; }
+    if(!d){ big++; continue; }
+    files.set(p,d); n++; if(!firstXml && extOf(p)==='xml' && d.text!=null) firstXml = p;
+    if(models.has(p) && d.text!=null) models.get(p).setValue(d.text);
+    await persist(p);
+  }
+  if(firstXml) mainXml = firstXml;
+  if(!mainXml || !files.has(mainXml)) mainXml = [...files.keys()].sort().find(k=>extOf(k)==='xml' && files.get(k).text!=null) || null;
+  renderList(); if(mainXml) openFile(mainXml);
+  if(mainXml && !mq.matches) $('#side').classList.remove('on');
+  say(n ? n+'個のファイルを読み込みました'+(mainXml?'':'(XMLなし)')+(big?' / 大きすぎて読めない:'+big+'個':'') : '読み込めるファイルがありませんでした', !n); sched();
+}
+async function openDirApi(){
+  const d = await showDirectoryPicker({mode:'readwrite'});
+  root = d; mode = 'fs'; files.clear(); dirs.clear(); models.forEach(m=>m.dispose()); models.clear(); active = null; mainXml = null;
+  const skipped = [];
+  const walk = async (dir,pre,depth)=>{
+    for await(const [n,h] of dir.entries()){
+      try{
+        if(h.kind==='directory'){
+          if(n==='.git' || n==='node_modules') continue;
+          dirs.add(pre+n); if(depth<8) await walk(h,pre+n+'/',depth+1);
+        } else {
+          const f = await h.getFile(), v = await readAny(f, pre+n);
+          if(v) files.set(pre+n,v); else skipped.push(pre+n+'(大きすぎ)');
+        }
+      }catch(err){ skipped.push(pre+n+'('+(err.name||'エラー')+')'); }
+    }
+  };
+  await walk(d,'',0);
+  window.__skipped = skipped;
+  mainXml = [...files.keys()].sort().find(k=>extOf(k)==='xml') || null;
+  renderList(); if(mainXml) openFile(mainXml); sched();
+  say(files.size ? 'フォルダ「'+d.name+'」を開きました('+files.size+'個)。'+(mainXml?'':'※XMLが見つかりません。')+(skipped.length?' 読めなかった/対象外: '+skipped.slice(0,5).join(', ')+(skipped.length>5?' ほか'+(skipped.length-5)+'個':''):'') : 'フォルダ「'+d.name+'」に読み込めるファイルがありません'+(skipped.length?'(対象外: '+skipped.slice(0,5).join(', ')+')':''), !files.size || !mainXml);
+  if(mainXml && !mq.matches) $('#side').classList.remove('on');
+}
+$('#dirBtn').onclick = async ()=>{
+  if(window.showDirectoryPicker){
+    try{ return await openDirApi(); }
+    catch(e){ if(e.name==='AbortError') return; say('この環境ではフォルダに直接保存できないため、読み込みのみで開きます('+(e.name||'')+')'); mode = 'mem'; root = null; }
+  }
+  $('#dirIn').click();
+};
+$('#dirIn').onchange = async e=>{ if(e.target.files.length) await importFiles(e.target.files,true); e.target.value=''; };
+$('#fileBtn').onclick = ()=>$('#fileIn').click();
+$('#fileIn').onchange = async e=>{ if(e.target.files.length) await importFiles(e.target.files,false); e.target.value=''; };
+
+// ---------- Monaco ----------
+const base = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min';
+window.MonacoEnvironment = { getWorkerUrl: () => URL.createObjectURL(new Blob(
+  [`self.MonacoEnvironment={baseUrl:'${base}/'};importScripts('${base}/vs/base/worker/workerMain.js');`],{type:'text/javascript'})) };
+require.config({ paths:{ vs: base+'/vs' } });
+require(['vs/editor/editor.main'], async () => {
+  editor = monaco.editor.create($('#ed'),{model:null,theme:'vs-dark',automaticLayout:true,fontSize:14,minimap:{enabled:false},wordWrap:'on'});
+  editor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS, async ()=>{ if(active){ await persist(active); say('保存しました: '+active); } });
+  editor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.Enter, async ()=>{ if(await render() && !mq.matches) $('#pvpane').classList.add('on'); });
+  const K = monaco.languages.CompletionItemKind;
+  const mainText = ()=>(mainXml&&files.get(mainXml)&&files.get(mainXml).text)||'';
+
+  monaco.languages.registerCompletionItemProvider('xml',{
+    triggerCharacters:['<'],
+    provideCompletionItems:(m,p)=>{
+      const w=m.getWordUntilPosition(p), range={startLineNumber:p.lineNumber,endLineNumber:p.lineNumber,startColumn:w.startColumn,endColumn:w.endColumn};
+      const s=TAGS.map(([n,h,d])=>({label:n,detail:d,kind:K.Keyword,range,insertTextRules:4,
+        insertText: n==='img'?'img src="$1" alt="$2"/>' : VOID.includes(h)?n+'/>' : n+'>$0</'+n+'>'}));
+      s.push({label:'style',detail:'CSSを書く',kind:K.Keyword,range,insertTextRules:4,insertText:'style><![CDATA[\n  $0\n]]></style>'});
+      s.push({label:'script',detail:'JavaScriptで紙面を制御',kind:K.Keyword,range,insertTextRules:4,insertText:'script><![CDATA[\n  $0\n]]><\/script>'});
+      return {suggestions:s};
+    }});
+  monaco.languages.registerCompletionItemProvider('css',{
+    triggerCharacters:['.','#'],
+    provideCompletionItems:(m,p)=>{
+      const x=mainText(), w=m.getWordUntilPosition(p), seen=new Set(), items=[];
+      const range={startLineNumber:p.lineNumber,endLineNumber:p.lineNumber,startColumn:w.startColumn,endColumn:w.endColumn};
+      const add=(l,t,k)=>{ if(!seen.has(l)){seen.add(l);items.push({label:l,detail:t,kind:k,insertText:l.slice(1),range})} };
+      for(const r of x.matchAll(/<([a-zA-Z][\w-]*)/g)) add('.'+r[1],'タグのclass',K.Class);
+      for(const r of x.matchAll(/class="([^"]+)"/g)) r[1].split(/\s+/).forEach(c=>c&&add('.'+c,'class',K.Class));
+      for(const r of x.matchAll(/id="([^"]+)"/g)) add('#'+r[1],'id',K.Variable);
+      return {suggestions:items};
+    }});
+
+  let saved = [];
+  try{ saved = await idbAll(); }catch(e){ say('この環境ではブラウザ内保存が使えません(💾でバックアップ、またはPCでは📁フォルダを使ってください)', true); }
+  if(saved.length) saved.forEach(([p,v])=>{ if(p.endsWith('/')) dirs.add(p.slice(0,-1)); else files.set(p,v); });
+  else for(const p in DEF){ files.set(p,DEF[p]); persist(p); }
+  mainXml = files.has('news.xml') ? 'news.xml' : [...files.keys()].sort().find(k=>extOf(k)==='xml' && files.get(k).text!=null) || null;
+  renderList(); if(mainXml) openFile(mainXml);
+  if(!idbWarned) say('準備OK — '+(mq.matches?'右に紙面が表示されます':'「プレビュー」で紙面を表示'));
+  if(mq.matches) render();
+}, () => say('Monacoを読み込めませんでした。ネット接続を確認してください。', true));
+</script>
+</body>
+</html>
